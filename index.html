@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蜘蛛侠:暮色摆荡</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; user-select: none; }
+  #game-canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #hud.active { display: block; }
+
+  #crosshair {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 22px; height: 22px; opacity: 0.85;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 4px rgba(255,60,60,0.9);
+  }
+  #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+  #crosshair::after  { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+  #crosshair.target::before, #crosshair.target::after { background: #ff4040; }
+
+  .hud-panel {
+    position: absolute; padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(10,10,30,0.72), rgba(40,0,10,0.6));
+    border: 1px solid rgba(255,70,70,0.45); border-radius: 10px;
+    color: #fff; backdrop-filter: blur(4px);
+  }
+  #panel-topleft { top: 18px; left: 18px; min-width: 230px; }
+  #score-line { font-size: 26px; font-weight: 700; letter-spacing: 1px;
+    color: #ffd75e; text-shadow: 0 0 10px rgba(255,160,0,0.6); }
+  #combo-line { font-size: 15px; color: #ff7b7b; height: 20px; font-weight: 600; }
+  #objective-line { font-size: 13px; color: #cfd8ff; margin-top: 4px; }
+
+  #healthbar-wrap { margin-top: 8px; width: 210px; height: 13px;
+    background: rgba(255,255,255,0.12); border-radius: 7px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.25); }
+  #healthbar { height: 100%; width: 100%;
+    background: linear-gradient(90deg, #ff2b2b, #ff7a3c); border-radius: 7px;
+    transition: width 0.25s ease; }
+
+  #panel-speed { bottom: 22px; right: 22px; text-align: right; }
+  #speed-num { font-size: 34px; font-weight: 800; color: #7ecbff;
+    text-shadow: 0 0 12px rgba(60,150,255,0.7); font-variant-numeric: tabular-nums; }
+  #speed-unit { font-size: 12px; color: #a8c6e8; }
+  #state-line { font-size: 13px; color: #ffb0b0; height: 18px; font-weight: 600; }
+
+  #message-center {
+    position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
+    font-size: 30px; font-weight: 800; color: #ffe37a; text-align: center;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.8), 0 0 22px rgba(255,180,0,0.5);
+    opacity: 0; transition: opacity 0.4s ease; white-space: nowrap;
+  }
+  #message-center.show { opacity: 1; }
+
+  #damage-vignette {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 0.35s ease;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(255,0,0,0.55) 100%);
+  }
+
+  /* ---------- 菜单 ---------- */
+  #menu {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; z-index: 10;
+    background: radial-gradient(ellipse at 50% 30%, rgba(60,10,25,0.88), rgba(5,5,18,0.96));
+  }
+  #menu.hidden { display: none; }
+  #menu h1 {
+    font-size: 58px; font-weight: 900; letter-spacing: 4px;
+    background: linear-gradient(180deg, #ff5b5b, #b3002d);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 6px 30px rgba(255,0,60,0.35); margin-bottom: 6px;
+  }
+  #menu h2 { font-size: 20px; color: #8fb7ff; font-weight: 500;
+    letter-spacing: 10px; margin-bottom: 34px; }
+  #menu .controls {
+    color: #d7dbea; font-size: 15px; line-height: 2.0;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px; padding: 18px 34px; margin-bottom: 34px;
+  }
+  #menu .controls b { color: #ffd75e; display: inline-block; min-width: 92px; }
+  #btn-start {
+    pointer-events: auto; cursor: pointer; border: none; border-radius: 999px;
+    font-size: 22px; font-weight: 800; letter-spacing: 3px; color: #fff;
+    padding: 16px 64px;
+    background: linear-gradient(135deg, #ff3c3c, #c40030);
+    box-shadow: 0 8px 30px rgba(255,30,60,0.45);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-family: inherit;
+  }
+  #btn-start:hover { transform: scale(1.06); box-shadow: 0 10px 40px rgba(255,30,60,0.7); }
+  #menu .tip { margin-top: 20px; color: #7d84a0; font-size: 13px; }
+  #loading-line { color: #9aa3c0; font-size: 15px; margin-top: 12px; height: 20px; }
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div class="hud-panel" id="panel-topleft">
+    <div id="score-line">分数 0</div>
+    <div id="combo-line"></div>
+    <div id="objective-line">收集蛛网令牌 0/40 · 击落无人机 0/12</div>
+    <div id="healthbar-wrap"><div id="healthbar"></div></div>
+  </div>
+  <div class="hud-panel" id="panel-speed">
+    <div id="state-line"></div>
+    <div><span id="speed-num">0</span> <span id="speed-unit">km/h</span></div>
+  </div>
+  <div id="message-center"></div>
+  <div id="damage-vignette"></div>
+</div>
+
+<div id="menu">
+  <h1>蜘蛛侠</h1>
+  <h2>暮 色 摆 荡</h2>
+  <div class="controls">
+    <div><b>鼠标</b> 视角 &nbsp;|&nbsp; <b>W A S D</b> 移动</div>
+    <div><b>按住左键</b> 发射蛛丝摆荡(松开脱手飞出)</div>
+    <div><b>右键 / E</b> 蛛丝飞跃(朝准星急冲,可撞毁无人机)</div>
+    <div><b>空格</b> 跳跃 / 二段跳 &nbsp;|&nbsp; <b>Shift</b> 疾跑</div>
+    <div><b>目标</b> 收集金色蛛网令牌 · 撞毁全部无人机</div>
+  </div>
+  <button id="btn-start">开始摆荡</button>
+  <div id="loading-line"></div>
+  <div class="tip">按 Esc 暂停 · 建议使用 Chrome / Edge 全屏体验</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
