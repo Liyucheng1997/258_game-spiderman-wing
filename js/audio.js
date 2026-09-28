@@ -173,4 +173,36 @@ export class GameAudio {
       o.start(st); o.stop(st + 0.75);
     });
   }
+
+  _tone(type, f0, f1, dur, vol, delay = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + delay;
+    const o = this.ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  // 无人机激光
+  laser() { this._tone('square', 1400, 180, 0.22, 0.12); }
+  // 无人机锁定警告
+  beep() { this._tone('sine', 1800, 1800, 0.08, 0.12); this._tone('sine', 1800, 1800, 0.08, 0.12, 0.12); }
+  // 蛛网弹
+  webShot() {
+    this.thwip();
+    this._tone('triangle', 900, 300, 0.1, 0.12);
+  }
+  // 命中
+  hit() { this._tone('square', 300, 90, 0.12, 0.25); }
+  // 穿过赛道环
+  ring(i = 0) { this._tone('sine', 880 * Math.pow(1.06, i), 1760 * Math.pow(1.06, i), 0.25, 0.25); }
+  // 倒计时
+  count(final = false) { this._tone('sine', final ? 1320 : 660, final ? 1320 : 660, final ? 0.5 : 0.18, 0.3); }
+  // 特技
+  whoosh() { this.zip(); }
 }
